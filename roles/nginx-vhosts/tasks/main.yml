@@ -1,0 +1,55 @@
+---
+- name: Install nginx
+  apt:
+    update_cache: true
+    name: nginx
+    state: latest
+
+- name: Create root web directory if not exists
+  file:
+    path: /var/www
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Create sites folders
+  file:
+    path: '/var/www/{{ item }}'
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  loop: '{{ sites }}'
+
+- name: Copy index from template
+  template:
+    src: 'index.html.j2'
+    dest: '/var/www/{{ item }}/index.html'
+    owner: www-data
+    group: www-data
+    mode: '0644'
+  loop: '{{ sites }}'
+  notify: restart nginx
+
+- name: Copy nginx config from template
+  template:
+    src: 'site.conf.j2'
+    dest: '/etc/nginx/conf.d/site-{{ item }}.conf'
+    owner: root
+    group: root
+    mode: '0644'
+  loop: '{{ sites }}'
+  notify: restart nginx
+
+- name: Remove default nginx site config (if exists)
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Ensure nginx is started and enabled
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
